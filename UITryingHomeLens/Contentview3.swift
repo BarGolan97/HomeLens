@@ -251,10 +251,13 @@ struct DeviceCard: View {
                 Text(device.name)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
                 Text(statusText)
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(device.isOn ? device.type.accent.opacity(0.9) : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
 
             Spacer().frame(height: 12)
@@ -364,34 +367,38 @@ struct DeviceDetailView: View {
 /// A tiny floating control panel — designed to be placed on/near the physical device.
 private struct CompactControl: View {
     @Binding var device: HomeDevice
+    @State private var showControls = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // ── Header: icon + name + power
+            // ── Header: icon + name + power (always visible, fixed size)
             header
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
-                .padding(.bottom, 14)
+                .padding(.bottom, showControls && device.isOn ? 14 : 18)
 
-            // ── Control (only when on)
-            if device.isOn {
+            // ── Expanded controls (only when Controls button toggled & device is on)
+            if showControls && device.isOn {
                 Divider().opacity(0.15).padding(.horizontal, 16)
                 controlArea
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
                     .padding(.bottom, 18)
-            } else {
-                Spacer().frame(height: 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .frame(width: 260)
-        .animation(.easeInOut(duration: 0.25), value: device.isOn)
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: showControls)
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: device.isOn)
+        .onChange(of: device.isOn) { _, isOn in
+            if !isOn { showControls = false }
+        }
     }
 
     // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             // Icon
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -407,13 +414,39 @@ private struct CompactControl: View {
                 Text(device.name)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
                 Text(device.room)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
 
             Spacer(minLength: 4)
+
+            // Controls toggle button (only when device is on)
+            if device.isOn {
+                Button {
+                    withAnimation {
+                        showControls.toggle()
+                    }
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(showControls ? device.type.accent : .white.opacity(0.5))
+                        .frame(width: 34, height: 34)
+                        .background {
+                            Circle()
+                                .fill(showControls
+                                      ? device.type.accent.opacity(0.15)
+                                      : .white.opacity(0.06))
+                        }
+                }
+                .buttonStyle(.plain)
+                .hoverEffect(.lift)
+                .transition(.scale.combined(with: .opacity))
+            }
 
             // Power
             Button {
